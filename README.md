@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 <a href="https://demo-nextjs-with-supabase.vercel.app/">
   <img alt="Next.js and Supabase Starter Kit - the fastest way to build apps with Next.js and Supabase" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
   <h1 align="center">Next.js and Supabase Starter Kit</h1>
@@ -107,3 +108,6 @@ Please file feedback and issues over on the [Supabase GitHub org](https://github
 =======
 # qaterseeker
 >>>>>>> 9cc976d834990211186197a9870aeeace230360a
+=======
+# qaterseeker
+>>>>>>> a4e4a38881393f55ed884eabeb25be439a68427c
