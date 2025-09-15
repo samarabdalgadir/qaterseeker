@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { useUser } from '@clerk/nextjs';
 
 interface RoleGuardProps {
   children: React.ReactNode;
@@ -20,52 +20,33 @@ export function RoleGuard({
   loadingComponent 
 }: RoleGuardProps) {
 
-  const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const router = useRouter();
+  const { user, isLoaded } = useUser();
 
   useEffect(() => {
     const checkUserRole = async () => {
       try {
-        const supabase = createClient();
-        const { data: { user: authUser }, error } = await supabase.auth.getUser();
+        if (!isLoaded) return;
 
-        if (error || !authUser) {
+        if (!user) {
           router.push(fallbackPath);
           return;
         }
 
-        // Fetch user role from API
-        const response = await fetch('/api/auth/user');
-        if (!response.ok) {
-          router.push(fallbackPath);
-          return;
-        }
-
-        const userData = await response.json();
-
-        // Check if user role is allowed
-        if (allowedRoles.includes(userData.role)) {
-          setAuthorized(true);
-        } else {
-          // Redirect based on user role
-          const redirectPath = userData.role === 'EMPLOYER' 
-            ? '/dashboard/employer' 
-            : '/dashboard/job-seeker';
-          router.push(redirectPath);
-        }
+        // For now, allow all authenticated users
+        // TODO: Implement role-based access control with Clerk metadata
+        setAuthorized(true);
       } catch (error) {
         console.error('Error checking user role:', error);
         router.push(fallbackPath);
-      } finally {
-        setLoading(false);
       }
     };
 
     checkUserRole();
-  }, [allowedRoles, fallbackPath, router]);
+  }, [allowedRoles, fallbackPath, router, user, isLoaded]);
 
-  if (loading) {
+  if (!isLoaded) {
     return loadingComponent || (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
