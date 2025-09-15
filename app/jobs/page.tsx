@@ -1,109 +1,136 @@
-'use client';
-
-import { useState, useEffect } from 'react';
 import { Navigation } from '@/components/navigation';
 import { JobCard } from '@/components/job-card';
-import { JobFiltersComponent } from '@/components/job-filters';
-import { JobWithEmployer, JobFilters } from '@/lib/jobs';
+import { createClient } from '@/utils/supabase/server';
+import { cookies } from 'next/headers';
+import { JobFilters, JobWithEmployer } from '@/lib/jobs';
 
-export default function JobsPage() {
-  const [jobs, setJobs] = useState<JobWithEmployer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<JobFilters>({});
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
+interface JobsPageProps {
+  searchParams: Promise<{
+    page?: string;
+    limit?: string;
+    search?: string;
+    location?: string;
+    company?: string;
+    salaryMin?: string;
+    salaryMax?: string;
+  }>;
+}
 
-  const fetchJobs = async (page: number = 1, currentFilters: JobFilters = {}) => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '10',
-        ...Object.fromEntries(
-          Object.entries(currentFilters).filter(([, value]) => value !== undefined && value !== '')
-        ),
-      });
+/**
+ * Fetches jobs from Supabase with server-side rendering
+ */
+async function getJobs(searchParams: {
+  search?: string;
+  location?: string;
+  company?: string;
+  salaryMin?: string;
+  salaryMax?: string;
+  page?: string;
+  limit?: string;
+}) {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
 
-      const response = await fetch(`/api/jobs?${params}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch jobs');
-      }
+  const page = parseInt(searchParams.page || '1');
+  const limit = parseInt(searchParams.limit || '10');
+  const offset = (page - 1) * limit;
 
-      const data = await response.json();
-      setJobs(data.jobs);
-      setTotalPages(data.totalPages);
-      setTotal(data.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
-    }
+  const filters: JobFilters = {
+    search: searchParams.search || undefined,
+    location: searchParams.location || undefined,
+    company: searchParams.company || undefined,
+    salaryMin: searchParams.salaryMin ? parseInt(searchParams.salaryMin) : undefined,
+    salaryMax: searchParams.salaryMax ? parseInt(searchParams.salaryMax) : undefined,
   };
 
-  useEffect(() => {
-    fetchJobs(currentPage, filters);
-  }, [currentPage, filters]);
+  // Build query
+  let query = supabase
+    .from('Job')
+    .select(`
+      *,
+      employer:User!Job_employerId_fkey(
+        id,
+        name,
+        employerProfile:EmployerProfile(
+          companyName
+        )
+      )
+    `);
 
-  const handleFiltersChange = (newFilters: JobFilters) => {
-    setFilters(newFilters);
-    setCurrentPage(1); // Reset to first page when filters change
-  };
+  // Apply status filter to show only active jobs
+  query = query.eq('status', 'ACTIVE');
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Job Listings</h1>
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <p className="text-red-600">Error loading jobs: {error}</p>
-              <button
-                onClick={() => fetchJobs(currentPage, filters)}
-                className="mt-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-              >
-                Try Again
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  // Apply filters
+  if (filters.search) {
+    query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+  }
+  if (filters.location) {
+    query = query.ilike('location', `%${filters.location}%`);
+  }
+  if (filters.company) {
+    query = query.ilike('employer.company_name', `%${filters.company}%`);
+  }
+  if (filters.salaryMin) {
+    query = query.gte('salary_min', filters.salaryMin);
+  }
+  if (filters.salaryMax) {
+    query = query.lte('salary_max', filters.salaryMax);
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation />
-      <div className="py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Find Your Next Job</h1>
-          <p className="text-gray-600">
-            {total > 0 ? `${total} job${total !== 1 ? 's' : ''} available` : 'Discover opportunities that match your skills'}
-          </p>
-        </div>
+  // Apply pagination
+  query = query.range(offset, offset + limit - 1);
 
-        {/* Filters */}
-        <JobFiltersComponent onFiltersChange={handleFiltersChange} initialFilters={filters} />
+  const { data: jobs, error, count } = await query;
 
-        {/* Loading State */}
-        {loading && (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-2 text-gray-600">Loading jobs...</p>
-          </div>
-        )}
+  if (error) {
+    throw new Error(`Failed to fetch jobs: ${error.message}`);
+  }
 
-        {/* Jobs List */}
-        {!loading && (
-          <>
+  // Add default _count for applications since it's not available in Supabase
+  const jobsWithCount = (jobs || []).map(job => ({
+    ...job,
+    _count: { applications: 0 }
+  }));
+
+  return {
+    jobs: jobsWithCount,
+    total: count || 0,
+    page,
+    limit,
+    totalPages: Math.ceil((count || 0) / limit)
+  };
+}
+
+/**
+ * Server component for jobs page using NextJS recommended Supabase pattern
+ */
+export default async function JobsPage({ searchParams }: JobsPageProps) {
+  try {
+    const resolvedSearchParams = await searchParams;
+    const { jobs, total } = await getJobs(resolvedSearchParams);
+    
+    const currentFilters: JobFilters = {
+      search: resolvedSearchParams.search,
+      location: resolvedSearchParams.location,
+      company: resolvedSearchParams.company,
+      salaryMin: resolvedSearchParams.salaryMin ? parseInt(resolvedSearchParams.salaryMin) : undefined,
+      salaryMax: resolvedSearchParams.salaryMax ? parseInt(resolvedSearchParams.salaryMax) : undefined,
+    };
+
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navigation />
+        <div className="py-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Find Your Next Job</h1>
+              <p className="text-gray-600">
+                {total > 0 ? `${total} job${total !== 1 ? 's' : ''} available` : 'Discover opportunities that match your skills'}
+              </p>
+            </div>
+
+            {/* Jobs List */}
             {jobs.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-gray-400 mb-4">
@@ -113,59 +140,36 @@ export default function JobsPage() {
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs found</h3>
                 <p className="text-gray-600">
-                  {Object.keys(filters).length > 0
+                  {Object.keys(currentFilters).some(key => currentFilters[key as keyof JobFilters])
                     ? 'Try adjusting your search filters to find more opportunities.'
                     : 'No jobs are currently posted. Check back later for new opportunities.'}
                 </p>
               </div>
             ) : (
               <div className="space-y-6">
-                {jobs.map((job) => (
+                {jobs.map((job: JobWithEmployer) => (
                   <JobCard key={job.id} job={job} />
                 ))}
               </div>
             )}
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="mt-8 flex justify-center">
-                <nav className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-                  
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`px-3 py-2 text-sm font-medium rounded-md ${
-                        page === currentPage
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                  
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
-                </nav>
-              </div>
-            )}
-          </>
-        )}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  } catch (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Job Listings</h1>
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <p className="text-red-600">
+                Error loading jobs: {error instanceof Error ? error.message : 'An error occurred'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }

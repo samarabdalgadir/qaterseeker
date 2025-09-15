@@ -1,12 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getJobs, JobFilters } from '@/lib/jobs';
+import { createClient } from '@/utils/supabase/server';
+import { cookies } from 'next/headers';
 
+export interface JobFilters {
+  search?: string;
+  location?: string;
+  company?: string;
+  salaryMin?: number;
+  salaryMax?: number;
+}
+
+/**
+ * GET handler for jobs API endpoint
+ * Fetches jobs from Supabase with optional filtering and pagination
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
+    const offset = (page - 1) * limit;
     
     const filters: JobFilters = {
       search: searchParams.get('search') || undefined,
@@ -16,16 +30,55 @@ export async function GET(request: NextRequest) {
       salaryMax: searchParams.get('salaryMax') ? parseInt(searchParams.get('salaryMax')!) : undefined,
     };
 
-    // Remove undefined values
-    Object.keys(filters).forEach(key => {
-      if (filters[key as keyof JobFilters] === undefined) {
-        delete filters[key as keyof JobFilters];
-      }
-    });
+    // Create Supabase client
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
 
-    const result = await getJobs(page, limit, filters);
-    
-    return NextResponse.json(result);
+    // Build query
+    let query = supabase
+      .from('jobs')
+      .select(`
+        *,
+        employer:employers(*)
+      `, { count: 'exact' });
+
+    // Apply filters
+    if (filters.search) {
+      query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+    }
+    if (filters.location) {
+      query = query.ilike('location', `%${filters.location}%`);
+    }
+    if (filters.company) {
+      query = query.ilike('employer.company_name', `%${filters.company}%`);
+    }
+    if (filters.salaryMin) {
+      query = query.gte('salary_min', filters.salaryMin);
+    }
+    if (filters.salaryMax) {
+      query = query.lte('salary_max', filters.salaryMax);
+    }
+
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: jobs, error, count } = await query;
+
+    if (error) {
+      console.error('Supabase error:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch jobs' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      jobs: jobs || [],
+      total: count || 0,
+      page,
+      limit,
+      totalPages: Math.ceil((count || 0) / limit)
+    });
   } catch (error) {
     console.error('Error fetching jobs:', error);
     return NextResponse.json(
