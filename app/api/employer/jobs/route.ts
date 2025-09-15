@@ -1,21 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { auth } from '@clerk/nextjs/server';
 import { createJob, getJobsByEmployer } from '@/lib/jobs';
+import { getUserByAuthId } from '@/lib/users';
 
+/**
+ * Get jobs for the current employer
+ * Requires Clerk authentication and EMPLOYER role
+ */
 export async function GET() {
   try {
-    const supabase = await createClient();
+    const { userId } = await auth();
     
-    const { data: { user }, error } = await supabase.auth.getUser();
-    
-    if (error || !user) {
+    if (!userId) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const jobs = await getJobsByEmployer(user.id);
+    // Get user from database
+    const dbUser = await getUserByAuthId(userId);
+    if (!dbUser) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    const jobs = await getJobsByEmployer(dbUser.id);
     
     return NextResponse.json(jobs);
   } catch (error) {
@@ -27,16 +39,27 @@ export async function GET() {
   }
 }
 
+/**
+ * Create a new job
+ * Requires Clerk authentication and EMPLOYER role
+ */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const { userId } = await auth();
     
-    const { data: { user }, error } = await supabase.auth.getUser();
-    
-    if (error || !user) {
+    if (!userId) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
+      );
+    }
+
+    // Get user from database
+    const dbUser = await getUserByAuthId(userId);
+    if (!dbUser) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
       );
     }
 
@@ -56,7 +79,7 @@ export async function POST(request: NextRequest) {
       salaryMin,
       salaryMax,
       company,
-      employerId: user.id,
+      employerId: dbUser.id,
     });
 
     return NextResponse.json(job);

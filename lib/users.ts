@@ -17,7 +17,7 @@ export interface UserWithProfile extends User {
   } | null;
 }
 
-// Get user by Supabase auth ID (clerkId in our schema)
+// Get user by Clerk auth ID (clerkId in our schema)
 export async function getUserByAuthId(authId: string): Promise<UserWithProfile | null> {
   try {
     const user = await prisma.user.findUnique({

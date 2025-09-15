@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
-import { getUserByAuthId, createUser } from '@/lib/users';
+import { auth } from '@clerk/nextjs/server';
+import { getUserByAuthId } from '@/lib/users';
 
+/**
+ * Get current authenticated user information
+ * Uses Clerk authentication to verify user identity
+ */
 export async function GET() {
   try {
-    const supabase = await createClient();
+    const { userId } = await auth();
 
-    const { data: { user }, error } = await supabase.auth.getUser();
-
-    if (error || !user) {
+    if (!userId) {
       return NextResponse.json(
         { error: 'Not authenticated' },
         { status: 401 }
@@ -16,24 +18,14 @@ export async function GET() {
     }
 
     // Try to get user from database
-    let dbUser = await getUserByAuthId(user.id);
+    const dbUser = await getUserByAuthId(userId);
 
-    // If user doesn't exist in database, create them
-    if (!dbUser) {
-      const userData = user.user_metadata || {};
-      dbUser = await createUser({
-        email: user.email!,
-        name: userData.name || user.email!.split('@')[0],
-        clerkId: user.id,
-        role: userData.role || 'JOBSEEKER',
-        imageUrl: userData.avatar_url,
-      });
-    }
-
+    // If user doesn't exist in database, we'll need to create them
+    // This should typically be handled by webhooks, but this is a fallback
     if (!dbUser) {
       return NextResponse.json(
-        { error: 'Failed to create or fetch user' },
-        { status: 500 }
+        { error: 'User not found in database. Please complete registration.' },
+        { status: 404 }
       );
     }
 

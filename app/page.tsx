@@ -19,9 +19,6 @@ export default function Home() {
               <Button asChild size="lg">
                 <Link href="/jobs">Browse Jobs</Link>
               </Button>
-              <Button asChild variant="outline" size="lg">
-                <Link href="/auth/signup">Create Account</Link>
-              </Button>
             </div>
             <p className="mt-4 text-sm text-muted-foreground">
               No spam. Apply securely using your Qatar Seeker profile.

@@ -1,26 +1,35 @@
-import Link from "next/link";
+import {
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from "@clerk/nextjs";
 import { Button } from "./ui/button";
-import { createClient } from "@/lib/supabase/server";
-import { LogoutButton } from "./logout-button";
 
-export async function AuthButton() {
-  const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-
-  return user ? (
-    <div className="flex items-center gap-4">
-      Hey, {user.email}!
-      <LogoutButton />
-    </div>
-  ) : (
-    <div className="flex gap-2">
-      <Button asChild size="sm" variant={"outline"}>
-        <Link href="/auth/login">Sign in</Link>
-      </Button>
-      <Button asChild size="sm" variant={"default"}>
-        <Link href="/auth/signup">Sign up</Link>
-      </Button>
-    </div>
+/**
+ * Authentication button component using Clerk
+ * Shows sign in/up buttons for unauthenticated users
+ * Shows user button for authenticated users
+ */
+export function AuthButton() {
+  return (
+    <>
+      <SignedOut>
+        <div className="flex gap-2">
+          <Button asChild size="sm" variant={"outline"}>
+            <SignInButton />
+          </Button>
+          <Button asChild size="sm" variant={"default"}>
+            <SignUpButton />
+          </Button>
+        </div>
+      </SignedOut>
+      <SignedIn>
+        <div className="flex items-center gap-4">
+          <UserButton />
+        </div>
+      </SignedIn>
+    </>
   );
 }

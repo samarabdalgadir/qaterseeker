@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { auth } from '@clerk/nextjs/server';
 import { createOrUpdateJobSeekerProfile, getUserByAuthId } from '@/lib/users';
 
+/**
+ * Create or update job seeker profile
+ * Requires Clerk authentication and JOBSEEKER role
+ */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const { userId } = await auth();
     
-    const { data: { user }, error } = await supabase.auth.getUser();
-    
-    if (error || !user) {
+    if (!userId) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -16,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user from database
-    const dbUser = await getUserByAuthId(user.id);
+    const dbUser = await getUserByAuthId(userId);
     if (!dbUser) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -57,13 +59,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * Get job seeker profile
+ * Requires Clerk authentication and JOBSEEKER role
+ */
 export async function GET() {
   try {
-    const supabase = await createClient();
+    const { userId } = await auth();
     
-    const { data: { user }, error } = await supabase.auth.getUser();
-    
-    if (error || !user) {
+    if (!userId) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -71,7 +75,7 @@ export async function GET() {
     }
 
     // Get user from database with profile
-    const dbUser = await getUserByAuthId(user.id);
+    const dbUser = await getUserByAuthId(userId);
     if (!dbUser) {
       return NextResponse.json(
         { error: 'User not found' },

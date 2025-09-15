@@ -72,8 +72,8 @@ export default function JobPage({ params }: JobPageProps) {
     if (!resolvedParams) return;
     
     if (!user) {
-      // Redirect to login with return URL
-      router.push(`/auth/login?returnUrl=/jobs/${resolvedParams.id}`);
+      // Redirect to Clerk sign-in with return URL
+      router.push(`/sign-in?redirect_url=/jobs/${resolvedParams.id}`);
       return;
     }
 
@@ -161,13 +161,13 @@ export default function JobPage({ params }: JobPageProps) {
           </div>
           <div className="flex gap-2">
             <Link
-              href="/auth/login"
+              href="/sign-in"
               className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
             >
               Sign in
             </Link>
             <Link
-              href="/auth/signup"
+              href="/sign-up"
               className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
               Sign up
@@ -199,11 +199,11 @@ export default function JobPage({ params }: JobPageProps) {
         {!user && (
           <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-blue-800">
-              <Link href="/auth/login" className="font-medium hover:underline">
+              <Link href="/sign-in" className="font-medium hover:underline">
                 Sign in
               </Link>{' '}
               or{' '}
-              <Link href="/auth/signup" className="font-medium hover:underline">
+              <Link href="/sign-up" className="font-medium hover:underline">
                 create an account
               </Link>{' '}
               to apply for this job.

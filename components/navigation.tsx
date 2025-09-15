@@ -1,49 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { SignInButton, SignUpButton, UserButton, useUser } from '@clerk/nextjs';
 
 import { ThemeSwitcher } from './theme-switcher';
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'JOBSEEKER' | 'EMPLOYER' | 'ADMIN';
-}
-
 export function Navigation() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoaded } = useUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await fetch('/api/auth/user');
-        if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
-        }
-      } catch (error) {
-        console.error('Error fetching user:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUser();
-  }, []);
 
   const isActive = (path: string) => {
     return pathname === path || pathname.startsWith(path + '/');
   };
 
   const getDashboardPath = () => {
-    if (!user) return '/auth/login';
-    return user.role === 'EMPLOYER' ? '/dashboard/employer' : '/dashboard/job-seeker';
+    if (!user) return '/sign-in';
+    return '/dashboard/job-seeker'; // Default to job seeker dashboard for now
   };
 
   return (
@@ -78,59 +53,33 @@ export function Navigation() {
             </Link>
           )}
 
-          {user?.role === 'EMPLOYER' && (
-            <Link
-              href="/dashboard/employer/post-job"
-              className={`font-medium transition-colors ${
-                isActive('/dashboard/employer/post-job') ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'
-              }`}
-            >
-              Post Job
-            </Link>
-          )}
+          {/* Post Job link removed for now - will be added back with role management */}
         </div>
 
         {/* Desktop Auth & Theme */}
         <div className="hidden md:flex items-center gap-2">
           <ThemeSwitcher />
-          {loading ? (
+          {!isLoaded ? (
             <div className="w-20 h-8 animate-pulse bg-gray-200 rounded"></div>
           ) : user ? (
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-700">
-                Hey, {user.name || user.email}!
+                Hey, {user.firstName || user.emailAddresses[0]?.emailAddress}!
               </span>
-              <button
-                onClick={async () => {
-                  try {
-                    const response = await fetch('/api/auth/logout', { method: 'POST' });
-                    if (response.ok) {
-                      setUser(null);
-                      window.location.href = '/';
-                    }
-                  } catch (error) {
-                    console.error('Error logging out:', error);
-                  }
-                }}
-                className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Sign out
-              </button>
+              <UserButton afterSignOutUrl="/" />
             </div>
           ) : (
             <div className="flex gap-2">
-              <Link
-                href="/auth/login"
-                className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Sign in
-              </Link>
-              <Link
-                href="/auth/signup"
-                className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Sign up
-              </Link>
+              <SignInButton mode="modal">
+                <button className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                  Sign in
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                  Sign up
+                </button>
+              </SignUpButton>
             </div>
           )}
         </div>
@@ -179,62 +128,40 @@ export function Navigation() {
               </Link>
             )}
 
-            {user?.role === 'EMPLOYER' && (
-              <Link
-                href="/dashboard/employer/post-job"
-                className={`block px-3 py-2 rounded-md font-medium transition-colors ${
-                  isActive('/dashboard/employer/post-job') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
-                }`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Post Job
-              </Link>
-            )}
+            {/* Post Job link removed for now - will be added back with role management */}
 
             <div className="border-t border-gray-200 pt-2 mt-2">
-              {loading ? (
+              {!isLoaded ? (
                 <div className="px-3 py-2">
                   <div className="w-24 h-4 animate-pulse bg-gray-200 rounded"></div>
                 </div>
               ) : user ? (
                 <div className="space-y-2">
                   <div className="px-3 py-2 text-sm text-gray-700">
-                    Hey, {user.name || user.email}!
+                    Hey, {user.firstName || user.emailAddresses[0]?.emailAddress}!
                   </div>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const response = await fetch('/api/auth/logout', { method: 'POST' });
-                        if (response.ok) {
-                          setUser(null);
-                          setMobileMenuOpen(false);
-                          window.location.href = '/';
-                        }
-                      } catch (error) {
-                        console.error('Error logging out:', error);
-                      }
-                    }}
-                    className="block w-full text-left px-3 py-2 rounded-md text-gray-700 hover:text-blue-600 hover:bg-gray-50 transition-colors"
-                  >
-                    Sign out
-                  </button>
+                  <div className="px-3 py-2">
+                    <UserButton afterSignOutUrl="/" />
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Link
-                    href="/auth/login"
-                    className="block px-3 py-2 rounded-md text-gray-700 hover:text-blue-600 hover:bg-gray-50 transition-colors"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Sign in
-                  </Link>
-                  <Link
-                    href="/auth/signup"
-                    className="block px-3 py-2 rounded-md text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Sign up
-                  </Link>
+                  <SignInButton mode="modal">
+                    <button
+                      className="block w-full text-left px-3 py-2 rounded-md text-gray-700 hover:text-blue-600 hover:bg-gray-50 transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Sign in
+                    </button>
+                  </SignInButton>
+                  <SignUpButton mode="modal">
+                    <button
+                      className="block w-full text-left px-3 py-2 rounded-md text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Sign up
+                    </button>
+                  </SignUpButton>
                 </div>
               )}
             </div>
