@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { Navigation } from '@/components/navigation';
 import { JobCard } from '@/components/job-card';
 import { JobFiltersComponent } from '@/components/job-filters';
 import { JobWithEmployer, JobFilters } from '@/lib/jobs';
@@ -79,36 +79,7 @@ export default function JobsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Simple Navigation */}
-      <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
-        <div className="w-full max-w-7xl flex justify-between items-center p-3 px-5 text-sm">
-          <div className="flex gap-6 items-center">
-            <Link href="/" className="font-bold text-lg">
-              Qatar Seeker
-            </Link>
-            <Link 
-              href="/jobs" 
-              className="font-medium text-blue-600"
-            >
-              Browse Jobs
-            </Link>
-          </div>
-          <div className="flex gap-2">
-            <Link
-              href="/auth/login"
-              className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/auth/signup"
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              Sign up
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navigation />
       <div className="py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
