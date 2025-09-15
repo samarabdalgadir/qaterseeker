@@ -36,11 +36,23 @@ export async function GET(request: NextRequest) {
 
     // Build query
     let query = supabase
-      .from('jobs')
+      .from('Job')
       .select(`
         *,
-        employer:employers(*)
-      `, { count: 'exact' });
+        employer:User!Job_employerId_fkey(
+          id,
+          name,
+          employerProfile:EmployerProfile(
+            companyName
+          )
+        )
+      `);
+
+    console.log('🏗️ Base query built for Job table');
+
+    // Apply status filter to show only active jobs
+    query = query.eq('status', 'ACTIVE');
+    console.log('✅ Status filter applied: ACTIVE jobs only');
 
     // Apply filters
     if (filters.search) {
@@ -50,13 +62,13 @@ export async function GET(request: NextRequest) {
       query = query.ilike('location', `%${filters.location}%`);
     }
     if (filters.company) {
-      query = query.ilike('employer.company_name', `%${filters.company}%`);
+      query = query.ilike('company', `%${filters.company}%`);
     }
     if (filters.salaryMin) {
-      query = query.gte('salary_min', filters.salaryMin);
+      query = query.gte('salaryMin', filters.salaryMin);
     }
     if (filters.salaryMax) {
-      query = query.lte('salary_max', filters.salaryMax);
+      query = query.lte('salaryMax', filters.salaryMax);
     }
 
     // Apply pagination

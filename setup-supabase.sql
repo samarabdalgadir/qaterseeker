@@ -138,6 +138,30 @@ CREATE POLICY "Employers can update applications to their jobs" ON "Application"
   );
 
 -- ============================================================================
+-- PART 1.6: GRANT PRIVILEGES (Schema, Tables, Sequences)
+-- ============================================================================
+
+-- Ensure roles can access the public schema
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT ALL ON SCHEMA public TO postgres, service_role;
+
+-- Grant read access to all existing tables for anon/authenticated (RLS still applies)
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon, authenticated;
+
+-- Grant full access to service_role (server-side operations)
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO service_role;
+
+-- Sequences (for future serial/bigserial usage)
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+
+-- Set default privileges so future tables/sequences inherit correct grants
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
+
+-- ============================================================================
 -- PART 2: INSERT SAMPLE DATA
 -- ============================================================================
 

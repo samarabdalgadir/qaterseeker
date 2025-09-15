@@ -28,12 +28,16 @@ async function getJobs(searchParams: {
   page?: string;
   limit?: string;
 }) {
+  console.log('🔍 getJobs called with searchParams:', searchParams);
+  
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
   const page = parseInt(searchParams.page || '1');
   const limit = parseInt(searchParams.limit || '10');
   const offset = (page - 1) * limit;
+
+  console.log('📊 Pagination params:', { page, limit, offset });
 
   const filters: JobFilters = {
     search: searchParams.search || undefined,
@@ -42,6 +46,8 @@ async function getJobs(searchParams: {
     salaryMin: searchParams.salaryMin ? parseInt(searchParams.salaryMin) : undefined,
     salaryMax: searchParams.salaryMax ? parseInt(searchParams.salaryMax) : undefined,
   };
+
+  console.log('🔧 Applied filters:', filters);
 
   // Build query
   let query = supabase
@@ -57,32 +63,49 @@ async function getJobs(searchParams: {
       )
     `);
 
+  console.log('🏗️ Base query built for Job table');
+
   // Apply status filter to show only active jobs
   query = query.eq('status', 'ACTIVE');
+  console.log('✅ Status filter applied: ACTIVE jobs only');
 
   // Apply filters
   if (filters.search) {
     query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+    console.log('🔍 Search filter applied:', filters.search);
   }
   if (filters.location) {
     query = query.ilike('location', `%${filters.location}%`);
+    console.log('📍 Location filter applied:', filters.location);
   }
   if (filters.company) {
-    query = query.ilike('employer.company_name', `%${filters.company}%`);
+    query = query.ilike('company', `%${filters.company}%`);
+    console.log('🏢 Company filter applied:', filters.company);
   }
   if (filters.salaryMin) {
-    query = query.gte('salary_min', filters.salaryMin);
+    query = query.gte('salaryMin', filters.salaryMin);
+    console.log('💰 Salary min filter applied:', filters.salaryMin);
   }
   if (filters.salaryMax) {
-    query = query.lte('salary_max', filters.salaryMax);
+    query = query.lte('salaryMax', filters.salaryMax);
+    console.log('💰 Salary max filter applied:', filters.salaryMax);
   }
 
   // Apply pagination
   query = query.range(offset, offset + limit - 1);
+  console.log('📄 Pagination applied:', { offset, limit });
 
+  console.log('🚀 Executing Supabase query...');
   const { data: jobs, error, count } = await query;
 
+  console.log('📥 Supabase response received:');
+  console.log('  - Error:', error);
+  console.log('  - Count:', count);
+  console.log('  - Jobs data length:', jobs?.length || 0);
+  console.log('  - First job (if any):', jobs?.[0] || 'No jobs found');
+
   if (error) {
+    console.error('❌ Supabase query error:', error);
     throw new Error(`Failed to fetch jobs: ${error.message}`);
   }
 
@@ -92,13 +115,22 @@ async function getJobs(searchParams: {
     _count: { applications: 0 }
   }));
 
-  return {
+  const result = {
     jobs: jobsWithCount,
     total: count || 0,
     page,
     limit,
     totalPages: Math.ceil((count || 0) / limit)
   };
+
+  console.log('✅ getJobs result:', {
+    jobsCount: result.jobs.length,
+    total: result.total,
+    page: result.page,
+    totalPages: result.totalPages
+  });
+
+  return result;
 }
 
 /**
